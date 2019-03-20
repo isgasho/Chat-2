@@ -9,10 +9,10 @@ import (
 
 //从cache里读出来的信息
 type ChatMemberModel struct {
-	MemberID int
-	Name     string
-	ChanID   int
-	Info     interface{}
+	MemberID int         //用户ID
+	Name     string      //用户名
+	ChanID   int         //联盟频道
+	Info     interface{} //自定义信息
 }
 
 //私聊的聊天信息
