@@ -29,6 +29,21 @@ func main() {
 	// fmt.Printf("%p\n", &a)
 	// fmt.Printf("%p", b)
 
+	//超时没有收到信息可以自我推出
+	// next := time.NewTimer(time.Second * 3)
+	// for {
+	// 	select {
+	// 	case <-next.C:
+	// 		fmt.Println("聊天频道闭关")
+	// 		return
+	// 	default:
+	// 		fmt.Println(".......")
+	// 		time.Sleep(time.Second * 1)
+	// 		next = time.NewTimer(time.Second * 3)
+
+	// 		break
+	// 	}
+	// }
 	flag.Parse()
 	tcpid := flag.Arg(0)
 	listener, err := net.Listen("tcp", tcpid)

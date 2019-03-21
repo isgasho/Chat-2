@@ -16,10 +16,18 @@ var chatmodelchan chan *models.ChatChannelModel
 
 func ChatRun(self *models.ChatChannelModel) {
 	//处理写入频道和频道信息返回
+	next := time.NewTimer(time.Hour * 1)
 	for {
 		select {
+		case <-self.Ctx.Done():
+			//正常这里不会进来
+			fmt.Println("聊天频道闭关", self.ChatName)
+			close(self.SendChan)
+			delete(*models.ChatList(), self.ChatName)
+			return
 		case msg := <-self.SendChan:
-			self.UpTime = time.Now().UTC()
+			self.UpTime = time.Now()
+			next = time.NewTimer(time.Hour * 3)
 			if msg != nil {
 				//处理逻辑与本频道有关
 				if msg.Sendchat == self.ChatName {
@@ -53,7 +61,13 @@ func ChatRun(self *models.ChatChannelModel) {
 				}
 			}
 			msg.Synwg.Done()
+		case <-next.C:
+			fmt.Println("聊天频道时间到了闭关", self.ChatName)
+			close(self.SendChan)
+			delete(*models.ChatList(), self.ChatName)
+			return
 		}
+
 	}
 }
 
@@ -61,13 +75,15 @@ func ChatRun(self *models.ChatChannelModel) {
 func ChatprivateRun(self *models.ChatChannelModel) {
 	//处理写入频道和频道信息返回
 	defer close(self.SendChan)
+	next := time.NewTimer(time.Hour * 1)
 	for {
 		select {
 		case <-self.Ctx.Done():
 			fmt.Println("频道：" + self.ChatName + " 关闭")
 			return
 		case msg := <-self.SendChan:
-			self.UpTime = time.Now().UTC()
+			self.UpTime = time.Now()
+			next = time.NewTimer(time.Hour * 3)
 			if msg != nil {
 				fmt.Println("频道：" + self.ChatName + " 处理请求")
 
@@ -99,6 +115,11 @@ func ChatprivateRun(self *models.ChatChannelModel) {
 				}
 			}
 			msg.Synwg.Done()
+		case <-next.C:
+			fmt.Println("聊天频道时间到了闭关", self.ChatName)
+			close(self.SendChan)
+			delete(*models.ChatList(), self.ChatName)
+			return
 		}
 	}
 }
@@ -113,6 +134,8 @@ func ChatManageRun(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			fmt.Println("聊天的管理协程关闭")
+			close(chatgetchan)
+			close(chatmodelchan)
 
 			return
 		case name := <-chatgetchan:

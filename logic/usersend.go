@@ -57,17 +57,16 @@ func UserGetChat(play *models.MemberModel) {
 			}
 		}
 		msgbuff = append(msgbuff, buff[:n]...)
-
+		msg := string(msgbuff)
+		n = strings.Index(msg, "\n")
+		if n > 0 {
+			msg = string(msgbuff[:n-1])
+			msgbuff = append(msgbuff[n+1:])
+		} else {
+			continue
+		}
 		if status == 0 { //还没有确认用户
 
-			msg := string(msgbuff)
-			n = strings.Index(msg, "\n")
-			if n > 0 {
-				msg = string(msgbuff[:n-1])
-				msgbuff = append(msgbuff[n+1:])
-			} else {
-				continue
-			}
 			msglist := strings.Split(msg, " ")
 			if len(msglist) < 2 {
 				fmt.Println(msg)
@@ -96,74 +95,67 @@ func UserGetChat(play *models.MemberModel) {
 				go UserSend(play) //开始可以给这个用户发东西了
 			}
 		} else if status == 1 { //开始收用户的消息
-			msg := string(msgbuff)
-			n = strings.Index(msg, "\n")
-			if n > 0 {
-				msg = string(msgbuff[:n-1])
-				msgbuff = append(msgbuff[n+1:])
-			} else {
-				continue
-			}
+
 			msglist := strings.SplitN(msg, " ", 5)
 			if msglist[0] == strconv.FormatInt(int64(play.MemberID), 10) && msglist[1] == strconv.FormatInt(int64(play.Hush), 10) {
 				fmt.Println("拿到一个用户的消息：" + msg)
 
 				//msglist[2]这后面的是消息指令
-				var msg models.MsgModel = models.MsgModel{
+				var msgmd models.MsgModel = models.MsgModel{
 					Commd:  msglist[2],
 					Result: models.ResultChatModel{},
 					Synwg:  sync.WaitGroup{},
 				}
 				num, _ := strconv.Atoi(msglist[3])
-				msg.ChatMax = int32(num)
-				json.Unmarshal([]byte(msglist[4]), &msg.Params)
+				msgmd.ChatMax = int32(num)
+				json.Unmarshal([]byte(msglist[4]), &msgmd.Params)
 				//拿到用户MC里的信息
 				mcuser := GetUserInfo(play.MemberID)
 				//拿到要查的频道
-				msg.ChatNameList = []string{
+				msgmd.ChatNameList = []string{
 					"ChatMain",
 					"Chat_" + strconv.FormatInt(int64(mcuser.ChanID), 10), //这里应该读用户身上的chatid
-					"Custom" + msg.Params["Custom"],
+					"Custom" + msgmd.Params["Custom"],
 					"Member_" + strconv.FormatInt(int64(play.MemberID), 10),
 				}
 				// msg.ChatNameList = strings.Split(msg.Params["ChanList"], ",")
 				switch msglist[2] {
 				case "sendall": //给所有人
-					msg.SendMember = *mcuser
-					msg.Sendchat = "ChatMain"
+					msgmd.SendMember = *mcuser
+					msgmd.Sendchat = "ChatMain"
 					break
 				case "sendto": //给指定人
-					msg.SendMember = *mcuser
-					msg.Sendchat = "Member_" + msg.Params["ToMemberID"]
-					msg.Synwg.Add(1)
-					chatmd := GetChatByChatName(msg.Sendchat)
-					chatmd.SendChan <- &msg
+					msgmd.SendMember = *mcuser
+					msgmd.Sendchat = "Member_" + msgmd.Params["ToMemberID"]
+					msgmd.Synwg.Add(1)
+					chatmd := GetChatByChatName(msgmd.Sendchat)
+					chatmd.SendChan <- &msgmd
 					break
 				case "sendchanid": //给联盟
-					msg.SendMember = *mcuser
-					msg.Sendchat = "Chat_" + strconv.FormatInt(int64(mcuser.ChanID), 10)
+					msgmd.SendMember = *mcuser
+					msgmd.Sendchat = "Chat_" + strconv.FormatInt(int64(mcuser.ChanID), 10)
 					break
 				case "sendcustom": //给指定频道
-					msg.SendMember = *mcuser
-					msg.Sendchat = "Custom" + msg.Params["Custom"]
+					msgmd.SendMember = *mcuser
+					msgmd.Sendchat = "Custom" + msgmd.Params["Custom"]
 					break
 				case "get": //拿消息
-					msg.Sendchat = ""
+					msgmd.Sendchat = ""
 					break
 				case "quit":
 					return
 				}
 				//上面在对消息填充
-				for _, chatname := range msg.ChatNameList {
-					msg.Synwg.Add(1)
+				for _, chatname := range msgmd.ChatNameList {
+					msgmd.Synwg.Add(1)
 					chatmd := GetChatByChatName(chatname)
-					chatmd.SendChan <- &msg
+					chatmd.SendChan <- &msgmd
 				}
 				fmt.Println("等待消息处理完成。")
-				msg.Synwg.Wait()
+				msgmd.Synwg.Wait()
 
 				//要收的信息都处理完了，下面是写到send协程上去
-				result, _ := json.Marshal(&msg.Result)
+				result, _ := json.Marshal(&msgmd.Result)
 				play.Send <- &result
 			}
 		}
@@ -204,4 +196,8 @@ func GetUserInfo(memberid int) *models.ChatMemberModel {
 	}
 	json.Unmarshal(v, &mcuser)
 	return &mcuser
+}
+
+func LogicMsg(msg *string, play *models.MemberModel, status *int) {
+
 }
