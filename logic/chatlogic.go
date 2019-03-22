@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -125,7 +126,8 @@ func ChatprivateRun(self *models.ChatChannelModel) {
 }
 
 //聊天的管理协程
-func ChatManageRun(ctx context.Context) {
+func ChatManageRun(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
 	chatlist := models.ChatList()
 	chatgetchan = make(chan string)
 	chatmodelchan = make(chan *models.ChatChannelModel)
